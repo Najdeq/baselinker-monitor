@@ -254,6 +254,26 @@ def run_scan():
 
     log.info(f"  Wierszy z danymi konkurencji: {len(rows)}")
 
+    # Dla każdego SKU (products_id) wybierz aukcję z najniższą naszą ceną.
+    # Alerty będą wysyłane tylko dla tych "zwycięskich" aukcji — duplikaty z
+    # wyższą ceną są ignorowane, bo i tak mamy tańszą ofertę tego produktu.
+    best_per_sku: dict[str, tuple[str, float]] = {}  # sku -> (auction_id, price)
+    for row in rows:
+        sku = row["products_id"]
+        if not sku:
+            continue
+        aid, price = row["auction_id"], row["price"]
+        if sku not in best_per_sku or price < best_per_sku[sku][1]:
+            best_per_sku[sku] = (aid, price)
+    winning_auctions = {aid for aid, _ in best_per_sku.values()}
+
+    skipped_sku = sum(
+        1 for row in rows
+        if row["products_id"] and row["auction_id"] not in winning_auctions
+    )
+    if skipped_sku:
+        log.info(f"  Pominięto duplikatów SKU (wyższa cena): {skipped_sku}")
+
     cache      = load_cache()
     all_alerts = []
 
@@ -270,12 +290,14 @@ def run_scan():
         if our_price <= 0 or comp_total <= 0:
             continue
 
-        key  = f"auction:{auction_id}"
-        prev = cache.get(key, {}).get("comp_total")
-        is_owell = (not owell_ids) or (auction_id in owell_ids)
+        sku        = row["products_id"]
+        is_winning = (not sku) or (auction_id in winning_auctions)
+        key        = f"auction:{auction_id}"
+        prev       = cache.get(key, {}).get("comp_total")
+        is_owell   = (not owell_ids) or (auction_id in owell_ids)
 
         if our_price - comp_total >= threshold:
-            if prev != comp_total and is_owell:
+            if prev != comp_total and is_owell and is_winning:
                 diff = our_price - comp_total
                 log.warning(f"  🚨 {auction_id} | My:{our_price:.2f} Konk:{comp_total:.2f} ({seller}) -{diff:.2f}zł")
                 alert = {
@@ -289,6 +311,8 @@ def run_scan():
                 }
                 all_alerts.append(alert)
                 append_alert(alert)
+            elif not is_winning:
+                log.debug(f"  ⏭ {auction_id} pominięty — tańsza oferta SKU '{sku}' istnieje")
 
         cache[key] = {
             "our_price":       our_price,
@@ -300,6 +324,7 @@ def run_scan():
             "products_id":     row["products_id"],
             "comp_auction_id": row["competition_auction_id"],
             "is_owell":        auction_id in owell_ids if owell_ids else True,
+            "is_winning_sku":  is_winning,
             "checked_at":      datetime.now().isoformat(),
         }
 
