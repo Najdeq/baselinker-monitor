@@ -10,7 +10,8 @@ from datetime import datetime
 from pathlib import Path
 
 import requests
-from flask import Flask, jsonify, request, send_from_directory
+from functools import wraps
+from flask import Flask, jsonify, request, send_from_directory, session, redirect, url_for, Response
 
 try:
     from dotenv import load_dotenv; load_dotenv()
@@ -26,6 +27,8 @@ OWELL_EXPORT_URL     = os.getenv("OWELL_EXPORT_URL", "")
 CHECK_INTERVAL_MIN   = int(os.getenv("CHECK_INTERVAL_MINUTES", "30"))
 PRICE_DIFF_THRESHOLD = float(os.getenv("PRICE_DIFF_THRESHOLD", "0.01"))
 WEB_PORT             = int(os.getenv("WEB_PORT", "5000"))
+PANEL_PASSWORD       = os.getenv("PANEL_PASSWORD", "1234")
+SECRET_KEY           = os.getenv("SECRET_KEY", "baselinker-secret-key-2026")
 
 BASE_DIR    = Path(__file__).parent
 LOG_FILE    = BASE_DIR / "monitor.log"
@@ -344,16 +347,74 @@ def run_scan():
 #  FLASK API
 # ══════════════════════════════════════════════════════════════════
 app = Flask(__name__, static_folder=str(BASE_DIR / "web_static"))
+app.secret_key = SECRET_KEY
+
+LOGIN_PAGE = """<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BaseLinker Monitor – Logowanie</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f0f1a; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; }
+  .card { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 12px; padding: 40px; width: 100%; max-width: 360px; }
+  h1 { color: #a78bfa; font-size: 1.4rem; margin-bottom: 8px; }
+  p { color: #888; font-size: 0.85rem; margin-bottom: 24px; }
+  input { width: 100%; padding: 12px 16px; background: #0f0f1a; border: 1px solid #2a2a4a; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; }
+  input:focus { border-color: #a78bfa; }
+  button { width: 100%; margin-top: 16px; padding: 12px; background: #a78bfa; border: none; border-radius: 8px; color: #0f0f1a; font-size: 1rem; font-weight: 700; cursor: pointer; }
+  button:hover { background: #c4b5fd; }
+  .error { color: #ff5555; font-size: 0.85rem; margin-top: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🔍 BaseLinker Monitor</h1>
+  <p>Podaj hasło aby wejść do panelu</p>
+  <form method="POST">
+    <input type="password" name="password" placeholder="Hasło" autofocus>
+    <button type="submit">Zaloguj</button>
+    {error}
+  </form>
+</div>
+</body>
+</html>"""
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        if request.form.get("password") == PANEL_PASSWORD:
+            session["logged_in"] = True
+            return redirect(url_for("index"))
+        return Response(LOGIN_PAGE.format(error='<p class="error">Błędne hasło</p>'), mimetype="text/html")
+    return Response(LOGIN_PAGE.format(error=""), mimetype="text/html")
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 @app.route("/")
+@login_required
 def index():
     return send_from_directory(BASE_DIR / "web_static", "index.html")
 
 @app.route("/api/config", methods=["GET"])
+@login_required
 def api_get_config():
     return jsonify(load_config())
 
 @app.route("/api/config", methods=["POST"])
+@login_required
 def api_save_config():
     data = request.json
     cfg  = load_config()
@@ -363,15 +424,18 @@ def api_save_config():
     return jsonify({"ok": True})
 
 @app.route("/api/status")
+@login_required
 def api_status():
     return jsonify(_scan_status)
 
 @app.route("/api/alerts")
+@login_required
 def api_alerts():
     limit = int(request.args.get("limit", 200))
     return jsonify({"alerts": load_alerts()[:limit]})
 
 @app.route("/api/scan/trigger", methods=["POST"])
+@login_required
 def api_trigger():
     if _scan_status["running"]:
         return jsonify({"ok": False, "msg": "Skan już trwa"}), 409
@@ -380,6 +444,7 @@ def api_trigger():
     return jsonify({"ok": True})
 
 @app.route("/api/log")
+@login_required
 def api_log():
     try:
         lines = int(request.args.get("lines", 150))
@@ -391,6 +456,7 @@ def api_log():
     return jsonify({"lines": []})
 
 @app.route("/api/prices")
+@login_required
 def api_prices():
     """Wszystkie ostatnie ceny z cache."""
     cache = load_cache()
@@ -402,6 +468,7 @@ def api_prices():
     return jsonify({"rows": rows})
 
 @app.route("/api/competitor/<name>")
+@login_required
 def api_competitor(name: str):
     """
     Dane dla zakładki konkretnego konkurenta.
