@@ -1,0 +1,24 @@
+# Konfiguracja z tokenami – NIGDY nie wgrywaj do repo!
+.env
+
+# Pliki generowane automatycznie przez skrypt
+price_cache.json
+alerts_history.json
+monitor_config.json
+monitor.log
+monitor.log.*
+monitor_error.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.venv/
+
+# Windows
+Thumbs.db
+desktop.ini

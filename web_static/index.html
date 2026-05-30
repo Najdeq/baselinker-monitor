@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BaseLinker Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0c10;--s1:#111318;--s2:#181c24;--s3:#1e2230;--border:#22283a;--accent:#4ade80;--orange:#f97316;--red:#ef4444;--blue:#60a5fa;--purple:#a78bfa;--pink:#f472b6;--yellow:#fbbf24;--text:#e2e8f0;--muted:#64748b}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(74,222,128,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(74,222,128,.025) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0}
+.wrap{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:0 28px 80px}
+
+/* Header */
+header{display:flex;align-items:center;justify-content:space-between;padding:26px 0 22px;border-bottom:1px solid var(--border);margin-bottom:28px}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-ico{width:38px;height:38px;background:var(--accent);border-radius:9px;display:grid;place-items:center;font-size:20px;flex-shrink:0}
+.logo h1{font-size:21px;font-weight:800;letter-spacing:-.5px}
+.logo h1 span{font-size:13px;color:var(--muted);font-weight:400;margin-left:6px}
+.pill{display:flex;align-items:center;gap:8px;padding:7px 16px;background:var(--s1);border:1px solid var(--border);border-radius:100px;font-family:'IBM Plex Mono',monospace;font-size:12px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.on{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite}
+.dot.scan{background:var(--orange);box-shadow:0 0 8px var(--orange)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.stat{background:var(--s1);border:1px solid var(--border);border-radius:13px;padding:18px 20px}
+.stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px}
+.stat-val{font-size:26px;font-weight:800;line-height:1}
+.stat-val.g{color:var(--accent)}.stat-val.r{color:var(--red)}.stat-val.b{color:var(--blue)}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:5px;font-family:'IBM Plex Mono',monospace}
+
+/* Nav tabs */
+.nav{display:flex;align-items:center;gap:2px;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto}
+.nav::-webkit-scrollbar{height:0}
+.nav-tab{padding:11px 20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;cursor:pointer;border:none;background:transparent;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;margin-bottom:-1px}
+.nav-tab:hover{color:var(--text)}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.nav-tab.owell.active{color:var(--blue);border-bottom-color:var(--blue)}
+.nav-tab.wuberg.active{color:var(--pink);border-bottom-color:var(--pink)}
+.nav-tab.avenido.active{color:var(--orange);border-bottom-color:var(--orange)}
+.nav-tab.sevenkraft.active{color:var(--purple);border-bottom-color:var(--purple)}
+.nav-tab.rottwell.active{color:var(--yellow);border-bottom-color:var(--yellow)}
+
+/* Pages */
+.page{display:none}.page.active{display:block}
+
+/* Monitor layout */
+.monitor-grid{display:grid;grid-template-columns:280px 1fr;gap:20px}
+.sidebar{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.card-hdr{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-ttl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--muted)}
+.card-body{padding:18px}
+
+/* Settings */
+.srow{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.srow:last-child{border-bottom:none}
+.slbl{font-size:13px}.sdesc{font-size:11px;color:var(--muted);margin-top:2px}
+.num-inp{width:76px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;outline:none;text-align:right}
+.num-inp:focus{border-color:var(--accent)}
+.toggle{position:relative;width:42px;height:22px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.tslider{position:absolute;inset:0;cursor:pointer;background:var(--border);border-radius:22px;transition:.2s}
+.tslider::before{content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.2s}
+.toggle input:checked+.tslider{background:var(--accent)}
+.toggle input:checked+.tslider::before{transform:translateX(20px)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:8px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;border:none;text-transform:uppercase;letter-spacing:.5px}
+.btn-g{background:var(--accent);color:#071a0a}.btn-g:hover{background:#86efac}
+.btn-g:disabled{opacity:.4;cursor:not-allowed}
+.btn-o{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-o:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm{padding:5px 12px;font-size:10px}
+.btn-row{display:flex;gap:8px;margin-top:16px}
+
+/* Tabs inside page */
+.inner-tabs{display:flex;gap:3px;padding:3px;background:var(--bg);border-radius:9px;margin-bottom:16px}
+.itab{flex:1;padding:7px;border-radius:7px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;transition:all .15s;text-align:center;background:transparent;border:none;color:var(--muted)}
+.itab.active{background:var(--s2);color:var(--text)}
+.ipane{display:none}.ipane.active{display:block}
+
+/* Table */
+.tbl-wrap{overflow-x:auto}
+.tbl-wrap::-webkit-scrollbar{height:4px}
+.tbl-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead tr{border-bottom:1px solid var(--border)}
+th{padding:9px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);font-weight:600;white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--s2)}
+.mono{font-family:'IBM Plex Mono',monospace}
+.c-g{color:var(--accent)}.c-r{color:var(--red)}.c-m{color:var(--muted)}
+.link{color:var(--blue);text-decoration:none;font-family:'IBM Plex Mono',monospace;font-size:11px}
+.link:hover{text-decoration:underline}
+.badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace}
+.bg{background:#1a2e1a;color:var(--accent);border:1px solid #2d4a2d}
+.br{background:#2e1a1a;color:var(--red);border:1px solid #4a2d2d}
+
+/* Competitor page */
+.comp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.comp-name{font-size:32px;font-weight:800}
+.comp-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.cstat{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center}
+.cstat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.cstat-val{font-size:22px;font-weight:800}
+.search-inp{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 14px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none;margin-bottom:12px;transition:border-color .2s}
+.search-inp:focus{border-color:var(--accent)}
+.search-inp::placeholder{color:var(--muted)}
+
+/* Log */
+.log-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.65;max-height:500px;overflow-y:auto;color:#94a3b8}
+.log-box::-webkit-scrollbar{width:3px}
+.log-box::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.lw{color:var(--orange)}.le{color:var(--red)}.li{color:#94a3b8}
+
+/* Empty */
+.empty{text-align:center;padding:48px 20px;color:var(--muted);font-size:13px}
+.empty .ico{font-size:38px;display:block;margin-bottom:12px;opacity:.4}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;right:24px;padding:11px 20px;border-radius:10px;font-size:13px;font-weight:600;background:var(--accent);color:#071a0a;transform:translateY(80px);opacity:0;transition:all .3s;z-index:999;pointer-events:none}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.err{background:var(--red);color:white}
+
+/* Spin */
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .6s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* Colors per competitor */
+.color-owell{color:var(--blue)}.color-wuberg{color:var(--pink)}.color-avenido{color:var(--orange)}.color-sevenkraft{color:var(--purple)}.color-rottwell{color:var(--yellow)}
+
+@media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}.monitor-grid{grid-template-columns:1fr}.comp-stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="logo">
+    <div class="logo-ico">📊</div>
+    <div><h1>BaseLinker Monitor<span>cen konkurencji</span></h1></div>
+  </div>
+  <div class="pill">
+    <div class="dot" id="dot"></div>
+    <span id="statusTxt">Ładowanie...</span>
+  </div>
+</header>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat">
+    <div class="stat-lbl">Ostatni skan</div>
+    <div class="stat-val" id="sLast" style="font-size:17px;font-weight:700">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-lbl">Monitorowane aukcje</div>
+    <div class="stat-val g" id="sTotal">—</div>
+    <div class="stat-sub" id="sTotalSub">0 = wszystkie</div>
+  </div>
+  <div class="stat">
+    <div class="stat-lbl">Przebite ceny</div>
+    <div class="stat-val r" id="sAlerts">—</div>
+    <div class="stat-sub">ostatni skan</div>
+  </div>
+  <div class="stat">
+    <div class="stat-lbl">Następny skan</div>
+    <div class="stat-val" id="sNext" style="font-size:17px;font-weight:700">—</div>
+  </div>
+</div>
+
+<!-- Nav -->
+<div class="nav">
+  <button class="nav-tab active" onclick="showPage('monitor')">🖥 Monitor</button>
+  <button class="nav-tab owell" onclick="showPage('owell')">Owell</button>
+  <button class="nav-tab wuberg" onclick="showPage('wuberg')">Wuberg</button>
+  <button class="nav-tab avenido" onclick="showPage('avenido')">Avenido</button>
+  <button class="nav-tab sevenkraft" onclick="showPage('sevenkraft')">SevenKraft</button>
+  <button class="nav-tab rottwell" onclick="showPage('rottwell')">Rottwell</button>
+</div>
+
+<!-- PAGE: Monitor -->
+<div class="page active" id="page-monitor">
+  <div class="monitor-grid">
+    <div class="sidebar">
+      <div class="card">
+        <div class="card-hdr"><span class="card-ttl">⚙️ Ustawienia</span></div>
+        <div class="card-body">
+          <div class="srow">
+            <div><div class="slbl">Interwał</div><div class="sdesc">Co ile minut</div></div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" class="num-inp" id="cfgInterval" min="5" max="1440" value="30">
+              <span style="font-size:11px;color:var(--muted)">min</span>
+            </div>
+          </div>
+          <div class="srow">
+            <div><div class="slbl">Próg alertu</div><div class="sdesc">Min. różnica</div></div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" class="num-inp" id="cfgThreshold" min="0.01" step="0.01" value="0.01">
+              <span style="font-size:11px;color:var(--muted)">zł</span>
+            </div>
+          </div>
+          <div class="srow">
+            <div><div class="slbl">Dolicz dostawę</div><div class="sdesc">Cena + dostawa konk.</div></div>
+            <label class="toggle"><input type="checkbox" id="cfgDelivery"><span class="tslider"></span></label>
+          </div>
+          <div class="srow">
+            <div><div class="slbl">Discord</div><div class="sdesc">Wysyłaj alerty</div></div>
+            <label class="toggle"><input type="checkbox" id="cfgDiscord" checked><span class="tslider"></span></label>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-g" onclick="saveConfig()">💾 Zapisz</button>
+            <button class="btn btn-o" id="btnScan" onclick="triggerScan()">▶ Skan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="inner-tabs">
+        <button class="itab active" onclick="showInner('alerts')">🚨 Alerty</button>
+        <button class="itab" onclick="showInner('allprices')">💰 Wszystkie ceny</button>
+        <button class="itab" onclick="showInner('log')">📋 Logi</button>
+      </div>
+
+      <div class="ipane active" id="ipane-alerts">
+        <div class="card">
+          <div class="card-hdr">
+            <span class="card-ttl">Przebite ceny (Owell)</span>
+            <button class="btn btn-o btn-sm" onclick="fetchAlerts()">↻</button>
+          </div>
+          <div class="tbl-wrap">
+            <table><thead><tr>
+              <th>#</th><th>Twoja aukcja</th><th>Twoja cena</th><th>Cena konk.</th><th>Różnica</th><th>Sprzedawca</th><th>Kiedy</th>
+            </tr></thead>
+            <tbody id="alertsBody">
+              <tr><td colspan="7"><div class="empty"><span class="ico">✅</span>Brak alertów</div></td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <div class="ipane" id="ipane-allprices">
+        <div class="card">
+          <div class="card-hdr">
+            <span class="card-ttl">Wszystkie ostatnie ceny</span>
+            <button class="btn btn-o btn-sm" onclick="fetchAllPrices()">↻</button>
+          </div>
+          <div class="tbl-wrap">
+            <table><thead><tr>
+              <th>#</th><th>Twoja aukcja</th><th>Twoja cena</th><th>Min. konk.</th><th>Sprzedawca</th><th>Status</th>
+            </tr></thead>
+            <tbody id="allPricesBody">
+              <tr><td colspan="6"><div class="empty"><span class="ico">📊</span>Uruchom skan</div></td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <div class="ipane" id="ipane-log">
+        <div class="card">
+          <div class="card-hdr">
+            <span class="card-ttl">Log systemowy</span>
+            <button class="btn btn-o btn-sm" onclick="fetchLog()">↻</button>
+          </div>
+          <div class="card-body">
+            <div class="log-box" id="logBox">Ładowanie...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: Competitor template (rendered by JS) -->
+<div class="page" id="page-owell">   <div id="comp-owell"></div></div>
+<div class="page" id="page-wuberg">  <div id="comp-wuberg"></div></div>
+<div class="page" id="page-avenido"> <div id="comp-avenido"></div></div>
+<div class="page" id="page-sevenkraft"><div id="comp-sevenkraft"></div></div>
+<div class="page" id="page-rottwell"><div id="comp-rottwell"></div></div>
+
+</div><!-- /wrap -->
+<div id="toast"></div>
+
+<script>
+const COMP_COLORS = {
+  owell:'var(--blue)', wuberg:'var(--pink)', avenido:'var(--orange)',
+  sevenkraft:'var(--purple)', rottwell:'var(--yellow)'
+};
+const COMP_LABELS = {
+  owell:'Owell', wuberg:'Wuberg', avenido:'Avenido',
+  sevenkraft:'SevenKraft', rottwell:'Rottwell'
+};
+
+let currentPage = 'monitor';
+let currentInner = 'alerts';
+
+// ── Init ──────────────────────────────────────────────────────────
+async function init() {
+  await fetchConfig();
+  await fetchStatus();
+  await fetchAlerts();
+  setInterval(fetchStatus, 15000);
+  setInterval(() => { if(currentPage==='monitor' && currentInner==='alerts') fetchAlerts(); }, 60000);
+}
+
+// ── Navigation ────────────────────────────────────────────────────
+function showPage(name) {
+  currentPage = name;
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-'+name));
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    const matches = (t.textContent.trim().toLowerCase().replace(/[^a-z]/g,'') === name) ||
+                    (name === 'monitor' && t.textContent.includes('Monitor'));
+    t.classList.toggle('active', matches);
+  });
+  if (name !== 'monitor') loadCompetitor(name);
+}
+
+function showInner(name) {
+  currentInner = name;
+  document.querySelectorAll('.itab').forEach((t,i) => t.classList.toggle('active', ['alerts','allprices','log'][i]===name));
+  document.querySelectorAll('.ipane').forEach(p => p.classList.toggle('active', p.id==='ipane-'+name));
+  if (name==='log') fetchLog();
+  if (name==='allprices') fetchAllPrices();
+}
+
+// ── Config ────────────────────────────────────────────────────────
+async function fetchConfig() {
+  const cfg = await (await fetch('/api/config')).json();
+  document.getElementById('cfgInterval').value  = cfg.check_interval_minutes || 30;
+  document.getElementById('cfgThreshold').value = cfg.price_diff_threshold   || 0.01;
+  document.getElementById('cfgDiscord').checked = cfg.discord_enabled !== false;
+  document.getElementById('cfgDelivery').checked= cfg.include_delivery === true;
+}
+
+async function saveConfig() {
+  const r = await fetch('/api/config', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      check_interval_minutes: parseInt(document.getElementById('cfgInterval').value),
+      price_diff_threshold:   parseFloat(document.getElementById('cfgThreshold').value),
+      discord_enabled:        document.getElementById('cfgDiscord').checked,
+      include_delivery:       document.getElementById('cfgDelivery').checked,
+    })
+  });
+  const d = await r.json();
+  if (d.ok) toast('✅ Zapisano'); else toast('❌ Błąd', true);
+}
+
+// ── Status ────────────────────────────────────────────────────────
+async function fetchStatus() {
+  try {
+    const d = await (await fetch('/api/status')).json();
+    const dot=document.getElementById('dot'), txt=document.getElementById('statusTxt');
+    if (d.running) { dot.className='dot scan'; txt.textContent='Skan w toku...'; }
+    else           { dot.className='dot on';   txt.textContent='Aktywny'; }
+    document.getElementById('sLast').textContent   = d.last_scan  ? fmtT(d.last_scan)  : 'Nie wykonano';
+    document.getElementById('sTotal').textContent  = d.last_total ?? '—';
+    document.getElementById('sAlerts').textContent = d.last_alerts ?? '—';
+    document.getElementById('sNext').textContent   = d.next_scan  ? fmtT(d.next_scan)  : '—';
+    const btn = document.getElementById('btnScan');
+    btn.disabled = d.running;
+    btn.textContent = d.running ? '⏳ Skanuje...' : '▶ Skan';
+  } catch(e) {}
+}
+
+// ── Alerts ────────────────────────────────────────────────────────
+async function fetchAlerts() {
+  const d    = await (await fetch('/api/alerts?limit=200')).json();
+  const body = document.getElementById('alertsBody');
+  if (!d.alerts?.length) {
+    body.innerHTML='<tr><td colspan="7"><div class="empty"><span class="ico">✅</span>Brak alertów – wszystkie ceny Owell OK</div></td></tr>';
+    return;
+  }
+  body.innerHTML = d.alerts.map((a,i) => {
+    const diff = (a.our_price - a.comp_total).toFixed(2);
+    return `<tr>
+      <td class="c-m mono">${i+1}</td>
+      <td><a class="link" href="https://allegro.pl/oferta/${esc(a.auction_id)}" target="_blank">🔗 ${esc(a.auction_id)}</a></td>
+      <td class="mono">${a.our_price?.toFixed(2)} zł</td>
+      <td><a class="link c-r" href="https://allegro.pl/oferta/${esc(a.comp_auction_id||'')}" target="_blank">${a.comp_total?.toFixed(2)} zł</a></td>
+      <td class="mono c-r">-${diff} zł</td>
+      <td style="font-size:12px">${esc(a.seller||'—')}</td>
+      <td class="c-m mono" style="font-size:11px">${fmtT(a.timestamp)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── All prices ────────────────────────────────────────────────────
+async function fetchAllPrices() {
+  const d    = await (await fetch('/api/prices')).json();
+  const body = document.getElementById('allPricesBody');
+  if (!d.rows?.length) {
+    body.innerHTML='<tr><td colspan="6"><div class="empty"><span class="ico">📊</span>Uruchom skan aby zobaczyć dane</div></td></tr>';
+    return;
+  }
+  body.innerHTML = d.rows.map((r,i) => {
+    const ok    = r.our_price <= r.comp_total;
+    const diff  = (r.our_price - r.comp_total).toFixed(2);
+    const badge = ok ? '<span class="badge bg">OK</span>' : `<span class="badge br">-${diff} zł</span>`;
+    return `<tr>
+      <td class="c-m mono">${i+1}</td>
+      <td><a class="link" href="https://allegro.pl/oferta/${esc(r.auction_id)}" target="_blank">🔗 ${esc(r.auction_id)}</a></td>
+      <td class="mono c-g">${r.our_price?.toFixed(2)} zł</td>
+      <td class="mono ${ok?'':'c-r'}">${r.comp_total?.toFixed(2)} zł</td>
+      <td style="font-size:12px">${esc(r.seller||'—')}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Competitor page ───────────────────────────────────────────────
+async function loadCompetitor(name) {
+  const box   = document.getElementById('comp-'+name);
+  const color = COMP_COLORS[name] || 'var(--accent)';
+  const label = COMP_LABELS[name] || name;
+  box.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)"><div class="spin"></div></div>`;
+
+  try {
+    const d = await (await fetch(`/api/competitor/${label}`)).json();
+    if (d.error) throw new Error(d.error);
+
+    const rows = d.rows || [];
+    const searchId = `search-${name}`;
+
+    box.innerHTML = `
+      <div class="comp-header">
+        <div class="comp-name" style="color:${color}">${label}</div>
+        <button class="btn btn-o btn-sm" onclick="loadCompetitor('${name}')">↻ Odśwież</button>
+      </div>
+      <div class="comp-stats">
+        <div class="cstat"><div class="cstat-lbl">Aukcji razem</div><div class="cstat-val">${d.total}</div></div>
+        <div class="cstat"><div class="cstat-lbl">Tańszych od nas</div><div class="cstat-val" style="color:var(--red)">${d.cheaper}</div></div>
+        <div class="cstat"><div class="cstat-lbl">Droższych od nas</div><div class="cstat-val" style="color:var(--accent)">${d.pricier}</div></div>
+        <div class="cstat"><div class="cstat-lbl">Śr. różnica</div><div class="cstat-val" style="color:${d.avg_diff>0?'var(--red)':'var(--accent)'}">${d.avg_diff > 0 ? '-' : '+'}${Math.abs(d.avg_diff).toFixed(2)} zł</div></div>
+      </div>
+      <input type="text" class="search-inp" id="${searchId}" placeholder="Szukaj po ID aukcji..." oninput="filterComp('${name}')">
+      <div class="card">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>#</th>
+              <th>Aukcja ${label}</th>
+              <th style="color:${color}">Cena ${label}</th>
+              <th>Twoja aukcja</th>
+              <th>Twoja cena</th>
+              <th>Różnica</th>
+              <th>Status</th>
+            </tr></thead>
+            <tbody id="tbody-${name}">
+              ${rows.length ? renderCompRows(rows, name) : '<tr><td colspan="7"><div class="empty"><span class="ico">📭</span>Brak danych</div></td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+    // Store rows for search
+    window._compData = window._compData || {};
+    window._compData[name] = rows;
+
+  } catch(e) {
+    box.innerHTML = `<div class="empty"><span class="ico">⚠️</span>${esc(e.message)}</div>`;
+  }
+}
+
+function renderCompRows(rows, name) {
+  return rows.map((r, i) => {
+    const diff   = r.diff;
+    const isOk   = diff <= 0;
+    const diffTxt = diff > 0 ? `-${diff.toFixed(2)} zł` : `+${Math.abs(diff).toFixed(2)} zł`;
+    const badge  = isOk ? '<span class="badge bg">OK</span>' : '<span class="badge br">PRZEBITA</span>';
+    return `<tr>
+      <td class="c-m mono">${i+1}</td>
+      <td><a class="link" href="https://allegro.pl/oferta/${esc(r.comp_auction_id||'')}" target="_blank">🔗 ${esc(r.comp_auction_id||'—')}</a></td>
+      <td class="mono ${isOk?'':'c-r'}">${r.comp_price?.toFixed(2)} zł</td>
+      <td><a class="link" href="https://allegro.pl/oferta/${esc(r.auction_id)}" target="_blank">🔗 ${esc(r.auction_id)}</a></td>
+      <td class="mono c-g">${r.our_price?.toFixed(2)} zł</td>
+      <td class="mono ${diff>0?'c-r':'c-g'}">${diffTxt}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterComp(name) {
+  const q    = document.getElementById(`search-${name}`)?.value?.toLowerCase() || '';
+  const rows = (window._compData?.[name] || []).filter(r =>
+    !q || r.auction_id?.includes(q) || r.comp_auction_id?.includes(q)
+  );
+  const tbody = document.getElementById(`tbody-${name}`);
+  if (tbody) tbody.innerHTML = rows.length
+    ? renderCompRows(rows, name)
+    : '<tr><td colspan="7"><div class="empty"><span class="ico">🔍</span>Brak wyników</div></td></tr>';
+}
+
+// ── Trigger scan ──────────────────────────────────────────────────
+async function triggerScan() {
+  document.getElementById('btnScan').disabled = true;
+  try {
+    const r = await fetch('/api/scan/trigger', {method:'POST'});
+    const d = await r.json();
+    if (d.ok) toast('▶ Skan uruchomiony!');
+    else toast(d.msg||'Błąd', true);
+  } catch(e) { toast('Błąd połączenia', true); }
+  setTimeout(fetchStatus, 1500);
+}
+
+// ── Log ───────────────────────────────────────────────────────────
+async function fetchLog() {
+  const d   = await (await fetch('/api/log?lines=200')).json();
+  const box = document.getElementById('logBox');
+  if (!d.lines?.length) { box.textContent='Brak logów.'; return; }
+  box.innerHTML = d.lines.map(l => {
+    const cls = l.includes('[WARNING]')||l.includes('🚨') ? 'lw' : l.includes('[ERROR]') ? 'le' : 'li';
+    return `<div class="${cls}">${esc(l.trim())}</div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function fmtT(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('pl-PL')+' '+d.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+let toastT;
+function toast(msg,err=false){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='show'+(err?' err':'');
+  clearTimeout(toastT);toastT=setTimeout(()=>el.className='',3000);
+}
+
+init();
+</script>
+</body>
+</html>
