@@ -1,0 +1,17 @@
+[Unit]
+Description=BaseLinker Monitor
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/baselinker-monitor
+EnvironmentFile=/opt/baselinker-monitor/.env
+ExecStart=/opt/baselinker-monitor/venv/bin/python price_monitor.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
