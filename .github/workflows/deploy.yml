@@ -8,15 +8,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_KEY }}
-          script: |
-            cd /opt/baselinker-monitor
-            git pull origin main
-            venv/bin/pip install -r requirements.txt -q
-            systemctl restart baselinker-monitor
-            echo "✅ Deploy zakończony"
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        run: |
+          ssh root@${{ secrets.VPS_HOST }} "cd /opt/baselinker-monitor && git pull origin main && venv/bin/pip install -r requirements.txt -q && systemctl restart baselinker-monitor && echo '✅ Deploy zakończony'"
