@@ -354,26 +354,26 @@ LOGIN_PAGE = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BaseLinker Monitor – Logowanie</title>
+<title>BaseLinker Monitor - Logowanie</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0f0f1a; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; }
-  .card { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 12px; padding: 40px; width: 100%; max-width: 360px; }
-  h1 { color: #a78bfa; font-size: 1.4rem; margin-bottom: 8px; }
-  p { color: #888; font-size: 0.85rem; margin-bottom: 24px; }
-  input { width: 100%; padding: 12px 16px; background: #0f0f1a; border: 1px solid #2a2a4a; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; }
-  input:focus { border-color: #a78bfa; }
-  button { width: 100%; margin-top: 16px; padding: 12px; background: #a78bfa; border: none; border-radius: 8px; color: #0f0f1a; font-size: 1rem; font-weight: 700; cursor: pointer; }
-  button:hover { background: #c4b5fd; }
-  .error { color: #ff5555; font-size: 0.85rem; margin-top: 12px; text-align: center; }
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ background: #0f0f1a; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; }}
+  .card {{ background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 12px; padding: 40px; width: 100%; max-width: 360px; }}
+  h1 {{ color: #a78bfa; font-size: 1.4rem; margin-bottom: 8px; }}
+  p {{ color: #888; font-size: 0.85rem; margin-bottom: 24px; }}
+  input {{ width: 100%; padding: 12px 16px; background: #0f0f1a; border: 1px solid #2a2a4a; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; }}
+  input:focus {{ border-color: #a78bfa; }}
+  button {{ width: 100%; margin-top: 16px; padding: 12px; background: #a78bfa; border: none; border-radius: 8px; color: #0f0f1a; font-size: 1rem; font-weight: 700; cursor: pointer; }}
+  button:hover {{ background: #c4b5fd; }}
+  .error {{ color: #ff5555; font-size: 0.85rem; margin-top: 12px; text-align: center; }}
 </style>
 </head>
 <body>
 <div class="card">
-  <h1>🔍 BaseLinker Monitor</h1>
-  <p>Podaj hasło aby wejść do panelu</p>
+  <h1>BaseLinker Monitor</h1>
+  <p>Podaj haslo aby wejsc do panelu</p>
   <form method="POST">
-    <input type="password" name="password" placeholder="Hasło" autofocus>
+    <input type="password" name="password" placeholder="Haslo" autofocus>
     <button type="submit">Zaloguj</button>
     {error}
   </form>
