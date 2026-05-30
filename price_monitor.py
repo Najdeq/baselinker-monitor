@@ -183,7 +183,7 @@ def send_discord_alert(alerts: list[dict], cfg: dict):
         my_url   = f"https://allegro.pl/oferta/{a['auction_id']}"
         comp_url = f"https://allegro.pl/oferta/{a['comp_auction_id']}" if a.get("comp_auction_id") else None
         embeds.append({
-            "title": f"🚨 Przebita cena! Aukcja {a['auction_id']}",
+            "title": f"🚨 {a.get('competitor') or a.get('seller') or 'Konkurencja'} przebił cenę! Aukcja {a['auction_id']}",
             "url":   my_url,
             "color": 0xFF3B30,
             "fields": [
